@@ -170,6 +170,9 @@ bool DefaultRobotHWSim::initSim(
     {
       // Create velocity joint interface
       joint_control_methods_[j] = VELOCITY;
+
+      ROS_WARN_STREAM("Joint " << joint_names_[j] << " set to VELOCITY");
+
       joint_handle = hardware_interface::JointHandle(js_interface_.getHandle(joint_names_[j]),
                                                      &joint_velocity_command_[j]);
       vj_interface_.registerHandle(joint_handle);
@@ -221,6 +224,7 @@ bool DefaultRobotHWSim::initSim(
                                joint_names_[j]);
       if (pid_controllers_[j].init(nh))
       {
+        ROS_WARN_STREAM("Managed to start PIDs for gazebo");
         switch (joint_control_methods_[j])
         {
           case POSITION:
@@ -233,6 +237,7 @@ bool DefaultRobotHWSim::initSim(
       }
       else
       {
+        ROS_WARN_STREAM("No pids, hopefully this means we'll use setAngle to control joints");
         // joint->SetParam("fmax") must be called if joint->SetAngle() or joint->SetParam("vel") are
         // going to be called. joint->SetParam("fmax") must *not* be called if joint->SetForce() is
         // going to be called.
@@ -306,6 +311,8 @@ void DefaultRobotHWSim::writeSim(ros::Time time, ros::Duration period)
   vj_sat_interface_.enforceLimits(period);
   vj_limits_interface_.enforceLimits(period);
 
+  std::stringstream message;
+
   for(unsigned int j=0; j < n_dof_; j++)
   {
     switch (joint_control_methods_[j])
@@ -353,12 +360,13 @@ void DefaultRobotHWSim::writeSim(ros::Time time, ros::Duration period)
         break;
 
       case VELOCITY:
+        message << "\nJoint " << joint_names_[j] <<  " velocity set to " <<  joint_velocity_command_[j];
 #if GAZEBO_MAJOR_VERSION > 2
         if (physics_type_.compare("dart") == 0)
         {
           sim_joints_[j]->SetVelocity(0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
         }
-        else 
+        else
         {
           sim_joints_[j]->SetParam("vel", 0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
         }
@@ -368,6 +376,7 @@ void DefaultRobotHWSim::writeSim(ros::Time time, ros::Duration period)
         break;
 
       case VELOCITY_PID:
+        message << "\nJoint " << joint_names_[j] <<  " velocity command " <<  joint_velocity_command_[j];
         double error;
         if (e_stop_active_)
           error = -joint_velocity_[j];
@@ -377,9 +386,11 @@ void DefaultRobotHWSim::writeSim(ros::Time time, ros::Duration period)
         const double effort = clamp(pid_controllers_[j].computeCommand(error, period),
                                     -effort_limit, effort_limit);
         sim_joints_[j]->SetForce(0, effort);
+         message << "\nJoint " << joint_names_[j] <<  " effort command " <<  effort;
         break;
     }
   }
+    ROS_WARN_STREAM_THROTTLE(1, message.str());
 }
 
 void DefaultRobotHWSim::eStopActive(const bool active)

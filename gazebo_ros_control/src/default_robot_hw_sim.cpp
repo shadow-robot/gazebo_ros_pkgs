@@ -243,6 +243,7 @@ bool DefaultRobotHWSim::initSim(
         // going to be called.
 #if GAZEBO_MAJOR_VERSION > 2
         joint->SetParam("fmax", 0, joint_effort_limits_[j]);
+        ROS_WARN_STREAM("fmax " << transmissions[j].name_ << " = " << joint_effort_limits_[j]);
 #else
         joint->SetMaxForce(0, joint_effort_limits_[j]);
 #endif
@@ -368,7 +369,8 @@ void DefaultRobotHWSim::writeSim(ros::Time time, ros::Duration period)
         }
         else
         {
-          sim_joints_[j]->SetParam("vel", 0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
+          // sim_joints_[j]->SetParam("vel", 0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
+          sim_joints_[j]->SetVelocity(0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
         }
 #else
         sim_joints_[j]->SetVelocity(0, e_stop_active_ ? 0 : joint_velocity_command_[j]);
